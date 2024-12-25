@@ -13,7 +13,7 @@ deployment:
     type: 'nvidia'
     number: 1
 image:
-  repository: ghcr.io/coqui-ai/tts
+  repository: freechatfun/freechat-tts
 extraArgs:
   - "--model_name"
   - "tts_models/multilingual/multi-dataset/xtts_v2"
@@ -21,7 +21,7 @@ extraArgs:
   - "true"
 extraEnv:
   - name: TTS_HOME
-    value: "data"
+    value: "/root/data"
   - name: TORTOISE_MODELS_DIR
     value: "/root/data/tortoise/models"
   - name: COQUI_TOS_AGREED

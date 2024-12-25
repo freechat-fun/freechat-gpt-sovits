@@ -3,11 +3,13 @@
 PROJECT_PATH=$(cd $(dirname ${BASH_SOURCE[0]})/..; pwd)
 PROJECT_NAME=${PROJECT_PATH##*/}
 
-HELM_CONFIG_HOME=${PROJECT_PATH}/src
+DOCKER_CONFIG_HOME=${PROJECT_PATH}/configs/docker
+HELM_CONFIG_HOME=${PROJECT_PATH}/configs/helm
 
 KUBE_CONFIG=${HELM_CONFIG_HOME}/kube-private.conf
 HELM_CONFIG=${HELM_CONFIG_HOME}/values-private.yaml
 NAMESPACE=
+VERBOSE=0
 ARGS=()
 
 while [ $# -gt 0 ]
@@ -30,6 +32,7 @@ do
       ;;
     -v|--verbose)
       set -eux
+      VERBOSE=1
       shift
       ;;
     *)
@@ -71,6 +74,10 @@ if [[ -f "${HELM_CONFIG}" ]]; then
   values_yaml="${values_yaml} -f ${HELM_CONFIG}"
 fi
 
+if [[ -f "${PROJECT_PATH}/${STARTER_MODULE}/src/main/resources/application-local.yml" ]]; then
+  eval $(parse_yaml "${PROJECT_PATH}/${STARTER_MODULE}/src/main/resources/application-local.yml" LOCAL_)
+fi
+
 if [[ -z "${NAMESPACE}" ]]; then
   if [[ -n "${HELM_annotations_group}" ]]; then
     NAMESPACE=${HELM_annotations_group//./-}
@@ -78,7 +85,6 @@ if [[ -z "${NAMESPACE}" ]]; then
     NAMESPACE=default
   fi
 fi
-
 
 die () {
   echo "$*"
@@ -90,8 +96,11 @@ check_kubectl() {
   which kubectl &>/dev/null || die "ERROR: You need to have the kubectl toolset in your PATH."
 }
 
+check_docker() {
+  which docker &>/dev/null || die "ERROR: You need to have the docker toolset in your PATH."
+}
+
 check_helm() {
   which helm &>/dev/null || die "ERROR: You need to have the helm toolset in your PATH."
 }
-
 
