@@ -9,17 +9,17 @@ COMPOSE_CONFIG=$(mktemp -d)/build.yml
 # compose config
 cat > ${COMPOSE_CONFIG} <<EOF
 services:
-  tts-cuba:
+  tts-cuda:
     build:
       context: ${DOCKER_CONFIG_HOME}
-      dockerfile: Dockerfile_tts_cuba
+      dockerfile: Dockerfile_tts_cuda
       args:
         - model_version=main
       tags:
-        - ${HELM_image_repository}:cuba-${HELM_version}
+        - ${HELM_image_repository}:cuda-${HELM_version}
       platforms:
         - linux/amd64
-    image: ${HELM_image_repository}:cuba-latest
+    image: ${HELM_image_repository}:cuda-latest
   tts-cpu:
     build:
       context: ${DOCKER_CONFIG_HOME}
@@ -38,4 +38,4 @@ if [[ "${VERBOSE}" == "1" ]];then
   cat ${COMPOSE_CONFIG}
 fi
 
-docker compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build --push tts-cuba tts-cpu
+docker compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build --push tts-cuda tts-cpu

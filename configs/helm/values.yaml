@@ -14,18 +14,7 @@ deployment:
     number: 1
 image:
   repository: freechatfun/freechat-tts
-extraArgs:
-  - "--model_name"
-  - "tts_models/multilingual/multi-dataset/xtts_v2"
-  - "--use_cuda"
-  - "true"
-extraEnv:
-  - name: TTS_HOME
-    value: "/root/data"
-  - name: TORTOISE_MODELS_DIR
-    value: "/root/data/tortoise/models"
-  - name: COQUI_TOS_AGREED
-    value: "1"
+  tag: cuda-latest
 ingress:
   enabled: false
   className: nginx
