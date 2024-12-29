@@ -4,6 +4,9 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 
 check_docker
 
+mkdir -p "${DOCKER_CONFIG_HOME}/TTS"
+cp -r "${PROJECT_PATH}/src/TTS/" "${DOCKER_CONFIG_HOME}/TTS/"
+
 COMPOSE_CONFIG=$(mktemp -d)/build.yml
 
 # compose config
@@ -39,3 +42,6 @@ if [[ "${VERBOSE}" == "1" ]];then
 fi
 
 docker compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build --push tts-cuda tts-cpu
+
+rm -f ${COMPOSE_CONFIG}
+rm -rf "${DOCKER_CONFIG_HOME}/TTS"
