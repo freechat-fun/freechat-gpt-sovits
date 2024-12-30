@@ -5,7 +5,7 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 check_docker
 
 mkdir -p "${DOCKER_CONFIG_HOME}/TTS"
-cp -r "${PROJECT_PATH}/src/TTS/" "${DOCKER_CONFIG_HOME}/TTS/"
+cp -r "${PROJECT_PATH}/src/TTS/" "${DOCKER_CONFIG_HOME}/"
 
 COMPOSE_CONFIG=$(mktemp -d)/build.yml
 
