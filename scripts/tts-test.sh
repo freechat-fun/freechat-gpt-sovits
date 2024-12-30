@@ -15,7 +15,7 @@ if [[ -f ${speakers} ]]; then
     fi
 
     output_wav=${PROJECT_PATH}/local-data/output/${name}.wav
-    curl -X POST 'https://tts.freechat.fun/inference/stream' \
+    curl -X POST 'https://tts.freechat.fun/inference' \
       -H 'Origin: https://tts.freechat.fun' \
       -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' \
       -H 'Content-Type: application/x-www-form-urlencoded' \

@@ -2,6 +2,7 @@
 import argparse
 import io
 import os
+import struct
 import sys
 import time
 from pathlib import Path
@@ -111,7 +112,7 @@ else:
     model.load_checkpoint(config, checkpoint_dir=model_path, vocab_path=vocab_path)
 
 
-def to_bytes(wav: List[int] | torch.Tensor) -> io.BytesIO:
+def to_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     out = io.BytesIO()
     if torch.is_tensor(wav):
         wav = wav.cpu().numpy()
@@ -124,6 +125,37 @@ def to_bytes(wav: List[int] | torch.Tensor) -> io.BytesIO:
 def get_work_data_dir(module: str) -> str:
     data_home = os.environ.get("DATA_HOME")
     return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
+
+
+def read_wav_data(byte_stream):
+    """
+    Read WAV data from a BytesIO stream.
+
+    Parameters
+    ----------
+    byte_stream : io.BytesIO
+        An in-memory binary stream containing WAV data.
+
+    Returns
+    -------
+    audio_data : bytes
+        The raw audio data.
+    """
+    byte_stream.seek(0)
+    if byte_stream.read(4) != b'RIFF':
+        raise ValueError("Not a valid WAV file")
+
+    byte_stream.seek(4, 1)
+    if byte_stream.read(4) != b'WAVE':
+        raise ValueError("Not a valid WAV file")
+
+    while True:
+        chunk_id = byte_stream.read(4)
+        chunk_size = struct.unpack('<I', byte_stream.read(4))[0]
+        if chunk_id == b'data':
+            break
+
+    return byte_stream.read(chunk_size)
 
 
 # APIs
@@ -180,10 +212,17 @@ def tts_stream():
 
             chunks = model.inference_stream(text, language_idx, gpt_cond_latent, speaker_embedding)
             for i, chunk in enumerate(chunks):
+                t1 = time.time()
+                print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}')
+                t0 = t1
+                if chunk.numel() == 0:
+                    print(f"Received chunk {i} is empty.")
+                    continue
+                out = to_bytes(chunk)
                 if i == 0:
-                    print(f'Time to first chunk: {time.time() - t0}')
-                print(f'Received chunk {i} of audio length {chunk.shape[-1]}')
-                yield to_bytes(chunk)
+                    yield out.getvalue()
+                else:
+                    yield read_wav_data(out)
 
         return Response(generate_chunks(), mimetype='audio/wav', direct_passthrough=True)
 
