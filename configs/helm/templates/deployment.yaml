@@ -46,10 +46,11 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           env:
+            - name: DATA_HOME
+              value: /root/data
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          command: ["python3", "TTS/server/server.py"]
           {{- with .Values.extraArgs }}
           args:
             {{- toYaml . | nindent 12 }}
@@ -85,27 +86,32 @@ spec:
             {{- end }}
             {{- $ressources := deepCopy (dict "limits" $limits) | mergeOverwrite .Values.resources }}
             {{- toYaml $ressources | nindent 12 }}
-          {{- end}}
+          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
-          {{- end}}
+          {{- end }}
           {{- if .Values.readinessProbe.enabled }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
-          {{- end}}
+          {{- end }}
           {{- with .Values.lifecycle}}
           lifecycle:
             {{- toYaml . | nindent 12 }}
-          {{- end}}
+          {{- end }}
           volumeMounts:
-            - name: persistence
+            - name: data
               mountPath: /root/data
               subPath: data
       volumes:
-        - name: persistence
+        {{- if .Values.persistence.enabled }}
+        - name: data
           persistentVolumeClaim:
             claimName: {{ include "helpers.name" . }}-pvc
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

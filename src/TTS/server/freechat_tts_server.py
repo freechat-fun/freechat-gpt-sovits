@@ -100,7 +100,7 @@ if args.model_path is not None:
     speakers_file_path = args.speakers_file_path
     vocab_path = args.vocab_path
 
-# create the xtts_v2 model
+# create the xtts model
 config = XttsConfig()
 config.load_json(config_path)
 model = Xtts.init_from_config(config)
@@ -119,6 +119,11 @@ def to_bytes(wav: List[int] | torch.Tensor) -> io.BytesIO:
         wav = np.array(wav)
     save_wav(wav=wav, path=out, sample_rate=config.model_args.output_sample_rate, pipe_out=None)
     return out
+
+
+def get_work_data_dir(module: str) -> str:
+    data_home = os.environ.get("DATA_HOME")
+    return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
 
 
 # APIs
@@ -193,7 +198,7 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    upload_folder = get_user_data_dir('wav')
+    upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, file.filename)
     file.save(file_path)
 
@@ -202,7 +207,7 @@ def upload_file():
 
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
-    upload_folder = get_user_data_dir('wav')
+    upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
 
     try:
