@@ -3,7 +3,7 @@ FROM ghcr.io/coqui-ai/tts-cpu
 ARG model_version=main
 
 RUN apt-get update && \
-    apt-get install -y curl
+    apt-get install -y --no-install-recommends curl
 RUN mkdir -p /root/.local/share/wav && \
     mkdir -p /root/.local/share/tortoise/models && \
     mkdir -p /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2 && \
