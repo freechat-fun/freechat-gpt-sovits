@@ -4,7 +4,8 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 
 check_docker
 
-cp -r "${PROJECT_PATH}/src/" "${DOCKER_CONFIG_HOME}/"
+mkdir "${DOCKER_CONFIG_HOME}/data"
+cp -r "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data"
 
 COMPOSE_CONFIG=$(mktemp -d)/build.yml
 
@@ -43,4 +44,4 @@ fi
 docker compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build --push tts-cuda tts-cpu
 
 rm -f ${COMPOSE_CONFIG}
-rm -rf "${DOCKER_CONFIG_HOME}/TTS"
+rm -rf "${DOCKER_CONFIG_HOME}/data"
