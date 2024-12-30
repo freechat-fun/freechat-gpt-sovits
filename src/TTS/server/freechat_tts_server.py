@@ -1,4 +1,5 @@
 #!flask/bin/python
+
 import argparse
 import io
 import os
@@ -12,7 +13,7 @@ from typing import List
 import numpy as np
 import torch
 import torchaudio
-from flask import Flask, render_template, request, jsonify, Response, send_file
+from flask import Flask, render_template, request, jsonify, Response
 
 from TTS.config import load_config
 from TTS.tts.configs.xtts_config import XttsConfig
@@ -112,7 +113,7 @@ else:
     model.load_checkpoint(config, checkpoint_dir=model_path, vocab_path=vocab_path)
 
 
-def to_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
+def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     out = io.BytesIO()
     if torch.is_tensor(wav):
         wav = wav.cpu().numpy()
@@ -122,40 +123,19 @@ def to_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     return out
 
 
+def to_wav_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
+    if torch.is_tensor(wav):
+        wav = wav.cpu().numpy()
+    if isinstance(wav, list):
+        wav = np.array(wav)
+    wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))
+    wav_norm = wav_norm.astype(np.int16)
+    return bytes(wav_norm.ravel().view('b').data)
+
+
 def get_work_data_dir(module: str) -> str:
     data_home = os.environ.get("DATA_HOME")
     return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
-
-
-def read_wav_data(byte_stream):
-    """
-    Read WAV data from a BytesIO stream.
-
-    Parameters
-    ----------
-    byte_stream : io.BytesIO
-        An in-memory binary stream containing WAV data.
-
-    Returns
-    -------
-    audio_data : bytes
-        The raw audio data.
-    """
-    byte_stream.seek(0)
-    if byte_stream.read(4) != b'RIFF':
-        raise ValueError("Not a valid WAV file")
-
-    byte_stream.seek(4, 1)
-    if byte_stream.read(4) != b'WAVE':
-        raise ValueError("Not a valid WAV file")
-
-    while True:
-        chunk_id = byte_stream.read(4)
-        chunk_size = struct.unpack('<I', byte_stream.read(4))[0]
-        if chunk_id == b'data':
-            break
-
-    return byte_stream.read(chunk_size)
 
 
 # APIs
@@ -183,7 +163,7 @@ def tts():
             gpt_cond_latent, speaker_embedding = None, None
 
         result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
-        out = to_bytes(result['wav'])
+        out = to_wav_file(result['wav'])
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
 
@@ -215,14 +195,7 @@ def tts_stream():
                 t1 = time.time()
                 print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}')
                 t0 = t1
-                if chunk.numel() == 0:
-                    print(f"Received chunk {i} is empty.")
-                    continue
-                out = to_bytes(chunk)
-                if i == 0:
-                    yield out.getvalue()
-                else:
-                    yield read_wav_data(out)
+                yield to_wav_bytes(chunk)
 
         return Response(generate_chunks(), mimetype='audio/wav', direct_passthrough=True)
 
