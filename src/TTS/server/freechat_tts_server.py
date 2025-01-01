@@ -161,7 +161,7 @@ def tts():
             upload_folder = get_work_data_dir('wav')
             audio_path = os.path.join(upload_folder, speaker_wav)
             print(f' > Speaker Wav: {speaker_wav}')
-            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[speaker_wav])
+            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
         else:
             gpt_cond_latent, speaker_embedding = None, None
 
@@ -184,16 +184,19 @@ def tts_stream():
         language_idx = request.headers.get('language-id') or request.values.get('language_id', '')
         speaker_wav = request.headers.get('speaker-wav') or request.values.get('speaker_wav', '')
 
-        print(f' > Model input: {text}')
-        print(f' > Language Idx: {language_idx}')
         if speaker_idx:
             print(f' > Speaker Idx: {speaker_idx}')
             gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
         elif speaker_wav:
+            upload_folder = get_work_data_dir('wav')
+            audio_path = os.path.join(upload_folder, speaker_wav)
             print(f' > Speaker Wav: {speaker_wav}')
-            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[speaker_wav])
+            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
         else:
             gpt_cond_latent, speaker_embedding = None, None
+
+        print(f' > Model input: {text}')
+        print(f' > Language Idx: {language_idx}')
 
         def generate_chunks():
             print('Inference...')
