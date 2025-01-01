@@ -146,30 +146,39 @@ lock = Lock()
 @app.route('/inference', methods=['GET', 'POST'])
 def tts():
     with lock:
+        print(f' > [{request.method}] /inference')
+        print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
         text = request.headers.get('text') or request.values.get('text', '')
         speaker_idx = request.headers.get('speaker-id') or request.values.get('speaker_id', '')
         language_idx = request.headers.get('language-id') or request.values.get('language_id', '')
         speaker_wav = request.headers.get('speaker-wav') or request.values.get('speaker_wav', '')
 
-        print(f' > Model input: {text}')
-        print(f' > Language Idx: {language_idx}')
         if speaker_idx:
             print(f' > Speaker Idx: {speaker_idx}')
             gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
         elif speaker_wav:
+            upload_folder = get_work_data_dir('wav')
+            audio_path = os.path.join(upload_folder, speaker_wav)
             print(f' > Speaker Wav: {speaker_wav}')
             gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[speaker_wav])
         else:
             gpt_cond_latent, speaker_embedding = None, None
+
+        print(f' > Model input: {text}')
+        print(f' > Language Idx: {language_idx}')
 
         result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
         out = to_wav_file(result['wav'])
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
 
-@app.route('/inference/stream', methods=['GET', 'POST'])
+@app.route('/inference/data/stream', methods=['GET', 'POST'])
 def tts_stream():
     with lock:
+        print(f' > [{request.method}] /inference/data/stream')
+        print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
         text = request.headers.get('text') or request.values.get('text', '')
         speaker_idx = request.headers.get('speaker-id') or request.values.get('speaker_id', '')
         language_idx = request.headers.get('language-id') or request.values.get('language_id', '')
@@ -202,35 +211,57 @@ def tts_stream():
 
 @app.route('/speaker/wav', methods=['POST'])
 def upload_file():
+    print(f' > [{request.method}] /speaker/wav')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+        return 'No file part', 400
 
     file = request.files['file']
 
     if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+        return 'No selected file', 400
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, file.filename)
     file.save(file_path)
 
-    return jsonify({'message': f'File {file.filename} uploaded successfully!'}), 200
+    return f'File {file.filename} uploaded successfully!', 200
 
 
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
+    print(f' > [{request.method}] /speaker/wav')
+    print(f' > Request id: {request.headers.get('Request-Id', '')}')
+
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
 
     try:
         os.remove(file_path)
-        return jsonify({'message': f'File {filename} deleted successfully!'}), 200
+        return f'File {filename} deleted successfully!', 200
     except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        return f'File {filename} not found', 404
+
+
+@app.route('/speaker/wav/exists/<filename>', methods=['GET'])
+def exists_file(filename):
+    print(f' > [{request.method}] /speaker/wav/exists')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
+    upload_folder = get_work_data_dir('wav')
+    file_path = os.path.join(upload_folder, filename)
+
+    return (f'File {filename} exists!', 200) \
+        if os.path.exists(file_path) \
+        else (f'File {filename} not found!', 404)
 
 
 @app.route('/details')
 def details():
+    print(f' > [{request.method}] /details')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
     if args.config_path is not None and os.path.isfile(args.config_path):
         model_config = load_config(args.config_path)
     else:
