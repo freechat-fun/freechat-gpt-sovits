@@ -232,7 +232,7 @@ def upload_file():
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
     print(f' > [{request.method}] /speaker/wav')
-    print(f' > Request id: {request.headers.get('Request-Id', '')}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
