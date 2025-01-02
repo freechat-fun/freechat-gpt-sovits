@@ -1,7 +1,6 @@
 #!flask/bin/python
 
 import argparse
-import typing
 
 import ffmpeg
 import io
@@ -193,7 +192,7 @@ def inference():
         print(f' > Speaker Wav: {speaker_wav}')
         gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
     else:
-        gpt_cond_latent, speaker_embedding = None, None
+        return None, 400
 
     print(f' > Model input: {text}')
     print(f' > Language Idx: {language_idx}')
@@ -252,7 +251,7 @@ def tts_stream():
             print(f' > Speaker Wav: {speaker_wav}')
             gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
         else:
-            gpt_cond_latent, speaker_embedding = None, None
+            return None, 400
 
         print(f' > Model input: {text}')
         print(f' > Language Idx: {language_idx}')
@@ -370,7 +369,7 @@ def test_stream():
     for i, chunk in enumerate(chunks):
         if i == 0:
             print(f"Time to first chunk: {time.time() - t0}")
-        print(f"Received chunk {i} of audio length {chunk.shape[-1]}")
+        print(f"Received chunk {i} of audio lesys.stdoutngth {chunk.shape[-1]}")
         wav_chunks.append(chunk)
     wav = torch.cat(wav_chunks, dim=0)
     torchaudio.save("xtts_streaming.wav", wav.squeeze().unsqueeze(0).cpu(), 24000)
