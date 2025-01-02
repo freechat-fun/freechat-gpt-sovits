@@ -14,7 +14,7 @@ RUN mkdir -p /root/.local/share/wav && \
     curl -sSLo /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/speakers_xtts.pth https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/${model_version}/speakers_xtts.pth
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
-    pip install python-ffmpeg
+    pip install ffmpeg-python
 RUN apt-get clean && apt-get autoremove -y
 RUN apt-get clean && apt-get autoremove -y
 
