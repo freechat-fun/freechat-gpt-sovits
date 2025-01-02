@@ -12,8 +12,10 @@ RUN mkdir -p /root/.local/share/wav && \
     curl -sSLo /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/vocab.json https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/${model_version}/vocab.json && \
     curl -sSLo /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/hash.md5 https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/${model_version}/hash.md5 && \
     curl -sSLo /root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/speakers_xtts.pth https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/${model_version}/speakers_xtts.pth
-RUN apt-get install -y --no-install-recommends ffmpeg && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     pip install python-ffmpeg
+RUN apt-get clean && apt-get autoremove -y
 RUN apt-get clean && apt-get autoremove -y
 
 ENV COQUI_TOS_AGREED=1

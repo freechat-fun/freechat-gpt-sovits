@@ -23,7 +23,8 @@ RUN CUDA_REPO_PKG=cuda-repo-ubuntu2204-11-8-local_11.8.0-520.61.05-1_amd64.deb &
     rm -f $CUDA_REPO_PKG && \
     rm -rf /var/lib/apt/lists/*
 RUN pip install deepspeed==0.10.3
-RUN apt-get install -y --no-install-recommends ffmpeg && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     pip install python-ffmpeg
 RUN apt-get clean && apt-get autoremove -y
 
