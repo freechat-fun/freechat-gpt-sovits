@@ -170,6 +170,8 @@ def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str,
 
 
 # APIs
+sys.stdout = sys.__stdout__
+sys.stderr = sys.__stderr__
 app = Flask(__name__)
 lock = Lock()
 
@@ -192,7 +194,7 @@ def inference():
         print(f' > Speaker Wav: {speaker_wav}')
         gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
     else:
-        return None, 400
+        raise ValueError('Miss speaker information.')
 
     print(f' > Model input: {text}')
     print(f' > Language Idx: {language_idx}')
@@ -205,7 +207,17 @@ def inference():
 def tts_wav():
     with lock:
         t0 = time.time()
-        data = inference()
+
+        try:
+            data = inference()
+        except ValueError as e:
+            print('Invalid parameters')
+            return None, 400
+
+        if data is None:
+            print('Failed to inference')
+            return None, 500
+
         out = to_wav_file(data)
         print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
@@ -215,7 +227,17 @@ def tts_wav():
 def tts_aac():
     with lock:
         t0 = time.time()
-        data = inference()
+
+        try:
+            data = inference()
+        except ValueError as e:
+            print('Invalid parameters')
+            return None, 400
+
+        if data is None:
+            print('Failed to inference')
+            return None, 500
+
         out = convert_pcm(data, 'adts')
         print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/aac', direct_passthrough=True)
@@ -225,7 +247,17 @@ def tts_aac():
 def tts_mp3():
     with lock:
         t0 = time.time()
-        data = inference()
+
+        try:
+            data = inference()
+        except ValueError as e:
+            print('Invalid parameters')
+            return None, 400
+
+        if data is None:
+            print('Failed to inference')
+            return None, 500
+
         out = convert_pcm(data, 'mp3')
         print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
