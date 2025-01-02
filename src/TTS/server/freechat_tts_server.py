@@ -1,11 +1,14 @@
 #!flask/bin/python
 
 import argparse
+import typing
+
+import ffmpeg
 import io
 import os
-import struct
 import sys
 import time
+
 from pathlib import Path
 from threading import Lock
 from typing import List
@@ -123,7 +126,7 @@ def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     return out
 
 
-def to_wav_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
+def to_pcm_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     if torch.is_tensor(wav):
         wav = wav.cpu().numpy()
     if isinstance(wav, list):
@@ -138,45 +141,101 @@ def get_work_data_dir(module: str) -> str:
     return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
 
 
+def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str,
+                sample_rate: int = config.model_args.output_sample_rate, bitrate: str = "64k") -> bytes:
+    if torch.is_tensor(data):
+        data = data.cpu().numpy()
+    if isinstance(data, list):
+        data = np.array(data)
+    data_norm = data * (32767 / max(0.01, np.max(np.abs(data))))
+    data_norm = data_norm.astype(np.int16)
+
+    if data_norm.ndim == 1:
+        channels = 1
+    else:
+        channels = data_norm.shape[1]
+    bit_depth = data_norm.dtype.itemsize * 8
+    pcm_format = f's{bit_depth}le'
+
+    process = (
+        ffmpeg
+        .input('pipe:0', format=pcm_format, ar=sample_rate, ac=channels)
+        .output('pipe:1', format=output_format, audio_bitrate=bitrate)
+        .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True, quiet=True)
+    )
+
+    input_data = bytes(data_norm.ravel().view('b').data)
+    stdout, stderr = process.communicate(input=input_data)
+    print(stderr.decode())
+    return stdout
+
+
 # APIs
 app = Flask(__name__)
 lock = Lock()
 
 
-@app.route('/inference', methods=['GET', 'POST'])
-def tts():
+def inference():
+    print(f' > [{request.method}] {request.path}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+
+    text = request.headers.get('text') or request.values.get('text', '')
+    speaker_idx = request.headers.get('speaker-id') or request.values.get('speaker_id', '')
+    language_idx = request.headers.get('language-id') or request.values.get('language_id', '')
+    speaker_wav = request.headers.get('speaker-wav') or request.values.get('speaker_wav', '')
+
+    if speaker_idx:
+        print(f' > Speaker Idx: {speaker_idx}')
+        gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
+    elif speaker_wav:
+        upload_folder = get_work_data_dir('wav')
+        audio_path = os.path.join(upload_folder, speaker_wav)
+        print(f' > Speaker Wav: {speaker_wav}')
+        gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
+    else:
+        gpt_cond_latent, speaker_embedding = None, None
+
+    print(f' > Model input: {text}')
+    print(f' > Language Idx: {language_idx}')
+
+    result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)["wav"]
+    return result
+
+
+@app.route('/inference/wav', methods=['GET', 'POST'])
+def tts_wav():
     with lock:
-        print(f' > [{request.method}] /inference')
-        print(f' > Request id: {request.headers.get("Request-Id", "")}')
-
-        text = request.headers.get('text') or request.values.get('text', '')
-        speaker_idx = request.headers.get('speaker-id') or request.values.get('speaker_id', '')
-        language_idx = request.headers.get('language-id') or request.values.get('language_id', '')
-        speaker_wav = request.headers.get('speaker-wav') or request.values.get('speaker_wav', '')
-
-        if speaker_idx:
-            print(f' > Speaker Idx: {speaker_idx}')
-            gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
-        elif speaker_wav:
-            upload_folder = get_work_data_dir('wav')
-            audio_path = os.path.join(upload_folder, speaker_wav)
-            print(f' > Speaker Wav: {speaker_wav}')
-            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
-        else:
-            gpt_cond_latent, speaker_embedding = None, None
-
-        print(f' > Model input: {text}')
-        print(f' > Language Idx: {language_idx}')
-
-        result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
-        out = to_wav_file(result['wav'])
+        t0 = time.time()
+        data = inference()
+        out = to_wav_file(data)
+        print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
+
+
+@app.route('/inference/aac', methods=['GET', 'POST'])
+def tts_aac():
+    with lock:
+        t0 = time.time()
+        data = inference()
+        out = convert_pcm(data, 'adts')
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
+        return Response(out, mimetype='audio/aac', direct_passthrough=True)
+
+
+@app.route('/inference/mp3', methods=['GET', 'POST'])
+def tts_mp3():
+    with lock:
+        t0 = time.time()
+        data = inference()
+        out = convert_pcm(data, 'mp3')
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
+        return Response(out, mimetype='audio/mp3', direct_passthrough=True)
 
 
 @app.route('/inference/data/stream', methods=['GET', 'POST'])
 def tts_stream():
     with lock:
-        print(f' > [{request.method}] /inference/data/stream')
+        print(f' > [{request.method}] {request.path}')
         print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
         text = request.headers.get('text') or request.values.get('text', '')
@@ -207,14 +266,14 @@ def tts_stream():
                 t1 = time.time()
                 print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}')
                 t0 = t1
-                yield to_wav_bytes(chunk)
+                yield to_pcm_bytes(chunk)
 
         return Response(generate_chunks(), mimetype='audio/wav', direct_passthrough=True)
 
 
 @app.route('/speaker/wav', methods=['POST'])
 def upload_file():
-    print(f' > [{request.method}] /speaker/wav')
+    print(f' > [{request.method}] {request.path}')
     print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     if 'file' not in request.files:
@@ -234,7 +293,7 @@ def upload_file():
 
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
-    print(f' > [{request.method}] /speaker/wav')
+    print(f' > [{request.method}] {request.path}')
     print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     upload_folder = get_work_data_dir('wav')
@@ -249,7 +308,7 @@ def delete_file(filename):
 
 @app.route('/speaker/wav/exists/<filename>', methods=['GET'])
 def exists_file(filename):
-    print(f' > [{request.method}] /speaker/wav/exists')
+    print(f' > [{request.method}] {request.path}')
     print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     upload_folder = get_work_data_dir('wav')
@@ -262,7 +321,7 @@ def exists_file(filename):
 
 @app.route('/details')
 def details():
-    print(f' > [{request.method}] /details')
+    print(f' > [{request.method}] {request.path}')
     print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     if args.config_path is not None and os.path.isfile(args.config_path):
