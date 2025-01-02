@@ -228,7 +228,7 @@ def tts_mp3():
         data = inference()
         out = convert_pcm(data, 'mp3')
         print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
-        return Response(out, mimetype='audio/mp3', direct_passthrough=True)
+        return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
 
 
 @app.route('/inference/data/stream', methods=['GET', 'POST'])
@@ -369,7 +369,7 @@ def test_stream():
     for i, chunk in enumerate(chunks):
         if i == 0:
             print(f"Time to first chunk: {time.time() - t0}")
-        print(f"Received chunk {i} of audio lesys.stdoutngth {chunk.shape[-1]}")
+        print(f"Received chunk {i} of audio length {chunk.shape[-1]}")
         wav_chunks.append(chunk)
     wav = torch.cat(wav_chunks, dim=0)
     torchaudio.save("xtts_streaming.wav", wav.squeeze().unsqueeze(0).cpu(), 24000)
