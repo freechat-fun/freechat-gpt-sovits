@@ -203,7 +203,7 @@ def inference():
     return result
 
 
-@app.route('/inference/wav', methods=['GET', 'POST'])
+@app.route('/inference/wav', methods=['POST'])
 def tts_wav():
     with lock:
         t0 = time.time()
@@ -223,7 +223,7 @@ def tts_wav():
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
 
-@app.route('/inference/aac', methods=['GET', 'POST'])
+@app.route('/inference/aac', methods=['POST'])
 def tts_aac():
     with lock:
         t0 = time.time()
@@ -243,7 +243,7 @@ def tts_aac():
         return Response(out, mimetype='audio/aac', direct_passthrough=True)
 
 
-@app.route('/inference/mp3', methods=['GET', 'POST'])
+@app.route('/inference/mp3', methods=['POST'])
 def tts_mp3():
     with lock:
         t0 = time.time()
@@ -263,7 +263,7 @@ def tts_mp3():
         return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
 
 
-@app.route('/inference/data/stream', methods=['GET', 'POST'])
+@app.route('/inference/data/stream', methods=['POST'])
 def tts_stream():
     with lock:
         print(f' > [{request.method}] {request.path}')
