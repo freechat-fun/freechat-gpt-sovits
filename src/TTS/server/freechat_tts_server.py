@@ -169,6 +169,14 @@ def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str,
     return stdout
 
 
+class IllegalArgumentException(Exception):
+    pass
+
+
+class IllegalStateException(Exception):
+    pass
+
+
 # APIs
 app = Flask(__name__)
 lock = Lock()
@@ -192,13 +200,22 @@ def inference():
         print(f' > Speaker Wav: {speaker_wav}')
         gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
     else:
-        raise ValueError('Miss speaker information.')
+        print('Miss speaker information.', sys.stderr)
+        raise IllegalArgumentException()
 
     print(f' > Model input: {text}')
     print(f' > Language Idx: {language_idx}')
 
-    result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)["wav"]
-    return result
+    if gpt_cond_latent is None or speaker_embedding is None:
+        print('The gpt_cond_latent and speaker_embedding should not be None.', sys.stderr)
+        raise IllegalStateException()
+
+    result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
+    if result is None or 'wav' not in result:
+        print('Failed to inference.', sys.stderr)
+        raise IllegalStateException()
+
+    return result['wav']
 
 
 @app.route('/inference/wav', methods=['POST'])
@@ -208,12 +225,9 @@ def tts_wav():
 
         try:
             data = inference()
-        except ValueError as e:
-            print('Invalid parameters')
+        except IllegalArgumentException:
             return None, 400
-
-        if data is None:
-            print('Failed to inference')
+        except IllegalStateException:
             return None, 500
 
         out = to_wav_file(data)
@@ -228,12 +242,9 @@ def tts_aac():
 
         try:
             data = inference()
-        except ValueError as e:
-            print('Invalid parameters')
+        except IllegalArgumentException:
             return None, 400
-
-        if data is None:
-            print('Failed to inference')
+        except IllegalStateException:
             return None, 500
 
         out = convert_pcm(data, 'adts')
@@ -248,12 +259,9 @@ def tts_mp3():
 
         try:
             data = inference()
-        except ValueError as e:
-            print('Invalid parameters')
+        except IllegalArgumentException:
             return None, 400
-
-        if data is None:
-            print('Failed to inference')
+        except IllegalStateException:
             return None, 500
 
         out = convert_pcm(data, 'mp3')
