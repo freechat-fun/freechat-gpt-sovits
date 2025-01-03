@@ -200,14 +200,14 @@ def inference():
         print(f' > Speaker Wav: {speaker_wav}')
         gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=[audio_path])
     else:
-        print('Miss speaker information.', sys.stderr)
+        print('Miss speaker information.', sys.stderr, flush=True)
         raise IllegalArgumentException()
 
     print(f' > Model input: {text}')
     print(f' > Language Idx: {language_idx}')
 
     if gpt_cond_latent is None or speaker_embedding is None:
-        print('The gpt_cond_latent and speaker_embedding should not be None.', sys.stderr)
+        print('The gpt_cond_latent and speaker_embedding should not be None.', sys.stderr, flush=True)
         raise IllegalStateException()
 
     result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
@@ -231,7 +231,7 @@ def tts_wav():
             return None, 500
 
         out = to_wav_file(data)
-        print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}', flush=True)
+        print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
 
@@ -248,7 +248,7 @@ def tts_aac():
             return None, 500
 
         out = convert_pcm(data, 'adts')
-        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/aac', direct_passthrough=True)
 
 
@@ -265,7 +265,7 @@ def tts_mp3():
             return None, 500
 
         out = convert_pcm(data, 'mp3')
-        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
         return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
 
 
@@ -301,7 +301,7 @@ def tts_stream():
             chunks = model.inference_stream(text, language_idx, gpt_cond_latent, speaker_embedding)
             for i, chunk in enumerate(chunks):
                 t1 = time.time()
-                print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}', flush=True)
+                print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}')
                 t0 = t1
                 yield to_pcm_bytes(chunk)
 
@@ -311,7 +311,7 @@ def tts_stream():
 @app.route('/speaker/wav', methods=['POST'])
 def upload_file():
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     if 'file' not in request.files:
         return 'No file part', 400
@@ -331,7 +331,7 @@ def upload_file():
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
@@ -346,7 +346,7 @@ def delete_file(filename):
 @app.route('/speaker/wav/exists/<filename>', methods=['GET'])
 def exists_file(filename):
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
@@ -359,7 +359,7 @@ def exists_file(filename):
 @app.route('/details')
 def details():
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
+    print(f' > Request id: {request.headers.get("Request-Id", "")}')
 
     if args.config_path is not None and os.path.isfile(args.config_path):
         model_config = load_config(args.config_path)
