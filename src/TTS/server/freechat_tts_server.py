@@ -212,7 +212,7 @@ def inference():
 
     result = model.inference(text, language_idx, gpt_cond_latent, speaker_embedding)
     if result is None or 'wav' not in result:
-        print('Failed to inference.', sys.stderr)
+        print('Failed to inference.', sys.stderr, flush=True)
         raise IllegalStateException()
 
     return result['wav']
@@ -231,7 +231,7 @@ def tts_wav():
             return None, 500
 
         out = to_wav_file(data)
-        print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}')
+        print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
 
@@ -248,7 +248,7 @@ def tts_aac():
             return None, 500
 
         out = convert_pcm(data, 'adts')
-        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/aac', direct_passthrough=True)
 
 
@@ -265,7 +265,7 @@ def tts_mp3():
             return None, 500
 
         out = convert_pcm(data, 'mp3')
-        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}')
+        print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
 
 
@@ -301,7 +301,7 @@ def tts_stream():
             chunks = model.inference_stream(text, language_idx, gpt_cond_latent, speaker_embedding)
             for i, chunk in enumerate(chunks):
                 t1 = time.time()
-                print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}')
+                print(f'Received chunk {i} of audio length {chunk.shape[-1]}, time: {t1 - t0}', flush=True)
                 t0 = t1
                 yield to_pcm_bytes(chunk)
 
@@ -311,7 +311,7 @@ def tts_stream():
 @app.route('/speaker/wav', methods=['POST'])
 def upload_file():
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
 
     if 'file' not in request.files:
         return 'No file part', 400
@@ -331,7 +331,7 @@ def upload_file():
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
 def delete_file(filename):
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
@@ -346,7 +346,7 @@ def delete_file(filename):
 @app.route('/speaker/wav/exists/<filename>', methods=['GET'])
 def exists_file(filename):
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, filename)
@@ -359,7 +359,7 @@ def exists_file(filename):
 @app.route('/details')
 def details():
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
 
     if args.config_path is not None and os.path.isfile(args.config_path):
         model_config = load_config(args.config_path)
