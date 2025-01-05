@@ -47,7 +47,7 @@ spec:
               protocol: TCP
           env:
             - name: DATA_HOME
-              value: /root/data
+              value: /var/lib/tts
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -101,7 +101,7 @@ spec:
           {{- end }}
           volumeMounts:
             - name: data
-              mountPath: /root/data
+              mountPath: /var/lib/tts
               subPath: data
       volumes:
         {{- if .Values.persistence.enabled }}
