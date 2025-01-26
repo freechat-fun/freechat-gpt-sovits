@@ -349,15 +349,16 @@ def upload_wav():
     if file.filename == '':
         return 'No selected file', 400
 
-    basename, ext = os.path.splitext(file.filename)
+    input_filename = os.path.basename(file.filename)
+    basename, ext = os.path.splitext(input_filename)
     if ext != '.wav':
         return 'Input file should be .wav', 400
 
     upload_folder = get_work_data_dir('wav')
-    file_path = os.path.join(upload_folder, file.filename)
+    file_path = os.path.join(upload_folder, input_filename)
     file.save(file_path)
 
-    return file.filename, 200
+    return input_filename, 200
 
 
 @app.route('/speaker/mp3', methods=['POST'])
@@ -373,14 +374,15 @@ def upload_mp3():
     if file.filename == '':
         return 'No selected file', 400
 
-    basename, ext = os.path.splitext(file.filename)
+    input_filename = os.path.basename(file.filename)
+    basename, ext = os.path.splitext(input_filename)
     if ext != '.mp3':
         return 'Input file should be .mp3', 400
 
     output_filename = f'{basename}.wav'
     tmp_dir = os.getenv('TMPDIR', '/tmp')
     upload_folder = get_work_data_dir('wav')
-    input_file_path = os.path.join(tmp_dir, file.filename)
+    input_file_path = os.path.join(tmp_dir, input_filename)
     output_file_path = os.path.join(upload_folder, output_filename)
 
     file.save(input_file_path)
