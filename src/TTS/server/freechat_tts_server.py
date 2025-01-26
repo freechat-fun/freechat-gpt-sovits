@@ -137,7 +137,10 @@ def to_pcm_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
 
 def get_work_data_dir(module: str) -> str:
     data_home = os.environ.get("DATA_HOME")
-    return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
+    data_path = os.path.join(data_home, module) if data_home else get_user_data_dir(module)
+    if not os.path.exists(data_path):
+        os.makedirs(data_path, exist_ok=True)
+    return data_path
 
 
 def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str = "mp3",
