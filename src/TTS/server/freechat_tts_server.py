@@ -2,7 +2,6 @@
 
 import argparse
 
-import ffmpeg
 import io
 import os
 import sys
@@ -12,6 +11,7 @@ from pathlib import Path
 from threading import Lock
 from typing import List
 
+import ffmpeg
 import numpy as np
 import torch
 import torchaudio
@@ -140,7 +140,7 @@ def get_work_data_dir(module: str) -> str:
     return os.path.join(data_home, module) if data_home else get_user_data_dir(module)
 
 
-def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str,
+def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str = "mp3",
                 sample_rate: int = config.model_args.output_sample_rate, bitrate: str = "64k") -> bytes:
     if torch.is_tensor(data):
         data = data.cpu().numpy()
@@ -156,17 +156,45 @@ def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str,
     bit_depth = data_norm.dtype.itemsize * 8
     pcm_format = f's{bit_depth}le'
 
-    process = (
-        ffmpeg
-        .input('pipe:0', format=pcm_format, ar=sample_rate, ac=channels)
-        .output('pipe:1', format=output_format, audio_bitrate=bitrate)
-        .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True, quiet=True)
-    )
+    try:
+        process = (
+            ffmpeg
+            .input('pipe:0', format=pcm_format, ar=sample_rate, ac=channels)
+            .output('pipe:1', format=output_format, audio_bitrate=bitrate)
+            .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True, quiet=True)
+        )
 
-    input_data = bytes(data_norm.ravel().view('b').data)
-    stdout, stderr = process.communicate(input=input_data)
-    print(stderr.decode())
-    return stdout
+        input_data = bytes(data_norm.ravel().view('b').data)
+        stdout, stderr = process.communicate(input=input_data)
+        if stderr:
+            print("Error:", stderr.decode())
+        else:
+            print(f"Successfully converted pcm to {output_format}")
+
+        return stdout
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise IllegalStateException(e)
+
+
+def convert_audio_to_wav(input_file_path: str, output_file_path: str = 'output.wav') -> None:
+    try:
+        process = (
+            ffmpeg
+            .input(input_file_path)
+            .output(output_file_path, format='wav')
+            .run_async(pipe_stdout=True, pipe_stderr=True, quiet=True)
+        )
+
+        stdout, stderr = process.communicate()
+
+        if stderr:
+            print("Error:", stderr.decode())
+        else:
+            print(f"Successfully converted {input_file_path} to {output_file_path}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise IllegalStateException(e)
 
 
 class IllegalArgumentException(Exception):
@@ -309,7 +337,7 @@ def tts_stream():
 
 
 @app.route('/speaker/wav', methods=['POST'])
-def upload_file():
+def upload_wav():
     print(f' > [{request.method}] {request.path}')
     print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
 
@@ -321,11 +349,44 @@ def upload_file():
     if file.filename == '':
         return 'No selected file', 400
 
+    basename, ext = os.path.splitext(file.filename)
+    if ext != '.wav':
+        return 'Input file should be .wav', 400
+
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, file.filename)
     file.save(file_path)
 
-    return f'File {file.filename} uploaded successfully!', 200
+    return file.filename, 200
+
+
+@app.route('/speaker/mp3', methods=['POST'])
+def upload_mp3():
+    print(f' > [{request.method}] {request.path}')
+    print(f' > Request id: {request.headers.get("Request-Id", "")}', flush=True)
+
+    if 'file' not in request.files:
+        return 'No file part', 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return 'No selected file', 400
+
+    basename, ext = os.path.splitext(file.filename)
+    if ext != '.mp3':
+        return 'Input file should be .mp3', 400
+
+    output_filename = f'{basename}.wav'
+    tmp_dir = os.getenv('TMPDIR', '/tmp')
+    upload_folder = get_work_data_dir('wav')
+    input_file_path = os.path.join(tmp_dir, file.filename)
+    output_file_path = os.path.join(upload_folder, output_filename)
+
+    file.save(input_file_path)
+    convert_audio_to_wav(input_file_path, output_file_path)
+
+    return output_filename, 200
 
 
 @app.route('/speaker/wav/<filename>', methods=['DELETE'])
