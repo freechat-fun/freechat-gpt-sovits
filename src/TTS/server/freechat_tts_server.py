@@ -355,7 +355,7 @@ def upload_wav():
     input_filename = os.path.basename(file.filename)
     basename, ext = os.path.splitext(input_filename)
     if ext != '.wav':
-        return 'Input file should be .wav', 400
+        return 'Input file should be *.wav', 400
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, input_filename)
@@ -380,7 +380,7 @@ def upload_mp3():
     input_filename = os.path.basename(file.filename)
     basename, ext = os.path.splitext(input_filename)
     if ext != '.mp3':
-        return 'Input file should be .mp3', 400
+        return 'Input file should be *.mp3', 400
 
     output_filename = f'{basename}.wav'
     tmp_dir = os.getenv('TMPDIR', '/tmp')
