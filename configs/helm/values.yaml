@@ -6,12 +6,10 @@ cert:
   manager:
     namespace: cert-manager
     version: v1.16.1
-deployment:
+gpu:
   enabled: true
-  gpu:
-    enabled: true
-    type: 'nvidia'
-    number: 1
+  type: 'nvidia'
+  number: 1
 image:
   repository: freechatfun/freechat-tts
   tag: cuda-latest
@@ -34,9 +32,13 @@ pdb:
 podSecurityContext:
   fsGroup: 10000
 persistence:
-  enabled: false
-  accessModes: [ ReadWriteOnce ]
-  storage: 60Gi
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  annotations:
+    helm.sh/resource-policy: keep
+  size: 60Gi
+  storageClass: default
 replicaCount: 1
 livenessProbe:
   enabled: true
@@ -62,6 +64,7 @@ resources:
   requests: {}
   limits: {}
 service:
+  enabled: true
   port: 5002
   type: ClusterIP
 serviceAccount:
