@@ -25,12 +25,6 @@ ingress:
           pathType: Prefix
   tls:
     enabled: false
-pdb:
-  create: true
-  minAvailable: ''
-  maxUnavailable: ''
-podSecurityContext:
-  fsGroup: 10000
 persistence:
   enabled: true
   accessModes:
@@ -39,6 +33,12 @@ persistence:
     helm.sh/resource-policy: keep
   size: 60Gi
   storageClass: default
+pdb:
+  create: true
+  minAvailable: ''
+  maxUnavailable: ''
+podSecurityContext:
+  fsGroup: 10000
 replicaCount: 1
 livenessProbe:
   enabled: true
