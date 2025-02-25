@@ -148,7 +148,7 @@ def refresh_aliyun_token():
         jss = json.loads(token_response)
         if 'Token' in jss and 'Id' in jss['Token']:
             token_info = jss['Token']
-            print(f'token: {token_info['Id']}, expireTime: {token_info['ExpireTime']}')
+            print(f'token: {token_info["Id"]}, expireTime: {token_info["ExpireTime"]}')
             return token_info
     except Exception as e:
         print('Failed to refresh aliyun sts token!', e)
