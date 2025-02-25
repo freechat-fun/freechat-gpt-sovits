@@ -135,7 +135,7 @@ class NlsCore:
         if which not in self.__callbacks:
             logging.error('no such callback:{}'.format(which))
             return
-        if which is 'on_close':
+        if which == 'on_close':
             with self.__cond:
                 self.__connection_status = NlsConnectionStatus.Disconnected
                 self.__cond.notify()

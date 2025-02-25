@@ -47,6 +47,8 @@ spec:
           env:
             - name: DATA_HOME
               value: /var/lib/tts
+            - name: PYTHONPATH
+              value: /root
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}

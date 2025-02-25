@@ -122,11 +122,11 @@ else:
 # create aliyun client
 aliyun_client = None
 if args.enable_aliyun_tts:
-    aliyun_client = AcsClient(
-       os.getenv('ALIYUN_AK_ID'),
-       os.getenv('ALIYUN_AK_SECRET'),
-       os.getenv('ALIYUN_REGION_ID'),
-    )
+    ak_id = os.getenv('ALIYUN_AK_ID')
+    ak_secret = os.getenv('ALIYUN_AK_SECRET')
+    region_id = os.getenv('ALIYUN_REGION_ID')
+    if ak_id and ak_secret and region_id:
+        aliyun_client = AcsClient(ak_id, ak_secret, region_id)
 cached_aliyun_token = {}
 cache_lock = Lock()
 
