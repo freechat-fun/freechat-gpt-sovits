@@ -1,12 +1,12 @@
 #!flask/bin/python
 
 import argparse
-
 import io
+import json
 import os
+import re
 import sys
 import time
-
 from pathlib import Path
 from threading import Lock
 from typing import List
@@ -15,8 +15,12 @@ import ffmpeg
 import numpy as np
 import torch
 import torchaudio
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, Response
 
+from aliyunsdkcore.client import AcsClient
+from aliyunsdkcore.request import CommonRequest
+
+import nls
 from TTS.config import load_config
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
@@ -67,6 +71,7 @@ def create_argparser():
     parser.add_argument('--use_cuda', type=convert_boolean, default=False, help='true to use CUDA.')
     parser.add_argument('--debug', type=convert_boolean, default=False, help='true to enable Flask debug mode.')
     parser.add_argument('--show_details', type=convert_boolean, default=False, help='Generate model detail page.')
+    parser.add_argument('--enable_aliyun_tts', type=convert_boolean, default=False, help='true to enable aliyun tts.')
     return parser
 
 
@@ -114,6 +119,62 @@ if args.use_cuda:
 else:
     model.load_checkpoint(config, checkpoint_dir=model_path, vocab_path=vocab_path)
 
+# create aliyun client
+aliyun_client = None
+if args.enable_aliyun_tts:
+    aliyun_client = AcsClient(
+       os.getenv('ALIYUN_AK_ID'),
+       os.getenv('ALIYUN_AK_SECRET'),
+       os.getenv('ALIYUN_REGION_ID'),
+    )
+cached_aliyun_token = {}
+cache_lock = Lock()
+
+
+def refresh_aliyun_token():
+    if not aliyun_client:
+        return None
+
+    token_request = CommonRequest()
+    token_request.set_method('POST')
+    token_request.set_domain(f'nls-meta.cn-shanghai.aliyuncs.com')
+    token_request.set_version('2019-02-28')
+    token_request.set_action_name('CreateToken')
+
+    try:
+        token_response = aliyun_client.do_action_with_exception(token_request)
+        print(token_response)
+
+        jss = json.loads(token_response)
+        if 'Token' in jss and 'Id' in jss['Token']:
+            token_info = jss['Token']
+            print(f'token: {token_info['Id']}, expireTime: {token_info['ExpireTime']}')
+            return token_info
+    except Exception as e:
+        print('Failed to refresh aliyun sts token!', e)
+        return None
+
+
+def get_aliyun_token():
+    if not aliyun_client:
+        return None
+
+    global cached_aliyun_token
+    with cache_lock:
+        if 'Id' in cached_aliyun_token and 'ExpireTime' in cached_aliyun_token:
+            expire_time = cached_aliyun_token['ExpireTime']
+            if time.time() < expire_time:
+                return cached_aliyun_token['Id']
+
+        new_token_info = refresh_aliyun_token()
+        if new_token_info:
+            cached_aliyun_token['Id'] = new_token_info['Id']
+            cached_aliyun_token['ExpireTime'] = new_token_info['ExpireTime']
+            return cached_aliyun_token['Id']
+        else:
+            print("Unable to retrieve a new token.")
+            return None
+
 
 def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
     out = io.BytesIO()
@@ -143,8 +204,8 @@ def get_work_data_dir(module: str) -> str:
     return data_path
 
 
-def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str = "mp3",
-                sample_rate: int = config.model_args.output_sample_rate, bitrate: str = "64k") -> bytes:
+def convert_pcm(data: List[int] | torch.Tensor | np.ndarray, output_format: str = 'mp3',
+                sample_rate: int = config.model_args.output_sample_rate, bitrate: str = '64k') -> bytes:
     if torch.is_tensor(data):
         data = data.cpu().numpy()
     if isinstance(data, list):
@@ -213,9 +274,10 @@ app = Flask(__name__)
 lock = Lock()
 
 
-def inference():
+def inference(output_format: str = None):
+    request_id = request.headers.get('Request-Id', '')
     print(f' > [{request.method}] {request.path}')
-    print(f' > Request id: {request.headers.get("Request-Id", "")}')
+    print(f' > Request id: {request_id}')
 
     text = request.headers.get('text') or request.values.get('text', '')
     speaker_idx = request.headers.get('speaker-id') or request.values.get('speaker_id', '')
@@ -224,6 +286,15 @@ def inference():
 
     if speaker_idx:
         print(f' > Speaker Idx: {speaker_idx}')
+        third_party_speaker = re.compile(r"\[(.+?)](.+?)(\|([^|]*))?")
+        match = third_party_speaker.match(speaker_idx)
+
+        if match:
+            platform = match.group(1)
+            speaker = match.group(2)
+            emotion = match.group(4)
+            if platform == 'aliyun' and aliyun_client:
+                return inference_by_aliyun(text, speaker, emotion, output_format, request_id)
         gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
     elif speaker_wav:
         upload_folder = get_work_data_dir('wav')
@@ -246,7 +317,76 @@ def inference():
         print('Failed to inference.', sys.stderr, flush=True)
         raise IllegalStateException()
 
-    return result['wav']
+    if not output_format:
+        return result['wav']
+    elif 'wav' == output_format:
+        return to_wav_file(result['wav'])
+    else:
+        return convert_pcm(result['wav'], output_format)
+
+
+def inference_by_aliyun(text: str,
+                        voice: str,
+                        emotion: str = None,
+                        output_format: str = None,
+                        request_id: str = '') -> io.BytesIO:
+    api_url = os.getenv('ALIYUN_TTS_URL')
+    if not api_url:
+        print('Miss aliyun tts api url.', sys.stderr, flush=True)
+        raise IllegalStateException()
+
+    app_key = os.getenv('ALIYUN_TTS_APP_KEY')
+    if not app_key:
+        print('Miss aliyun tts app key.', sys.stderr, flush=True)
+        raise IllegalStateException()
+
+    sts_token = get_aliyun_token()
+    if not sts_token:
+        print('Miss aliyun sts token.', sys.stderr, flush=True)
+        raise IllegalStateException()
+
+    if emotion and voice.endswith('_emo'):
+        text = f'<speak voice="{voice}"><emotion category="{emotion}">{text}</emotion></speak>'
+
+    out = io.BytesIO()
+
+    def on_metainfo(message, *args):
+        print("aliyun tts on_metainfo message=>{}".format(message))
+
+    def on_error(message, *args):
+        print("aliyun tts on_error args=>{}".format(args))
+
+    def on_close(*args):
+        print("aliyun tts on_close: args=>{}".format(args))
+        try:
+            out.close()
+        except Exception as e:
+            print("close file failed since:", e)
+
+    def on_data(data, *args):
+        try:
+            out.write(data)
+        except Exception as e:
+            print("write data failed:", e)
+
+    def on_completed(message, *args):
+        print("aliyun tts on_completed:args=>{} message=>{}".format(args, message))
+
+    tts = nls.NlsSpeechSynthesizer(url=api_url,
+                                   token=sts_token,
+                                   appkey=app_key,
+                                   on_metainfo=on_metainfo,
+                                   on_data=on_data,
+                                   on_completed=on_completed,
+                                   on_error=on_error,
+                                   on_close=on_close,
+                                   callback_args=[request_id])
+    tts.start(text=text,
+              aformat=output_format,
+              voice=voice,
+              wait_complete=True)
+    tts.shutdown()
+    return out
 
 
 @app.route('/inference/wav', methods=['POST'])
@@ -255,13 +395,11 @@ def tts_wav():
         t0 = time.time()
 
         try:
-            data = inference()
+            out = inference('wav')
         except IllegalArgumentException:
             return None, 400
         except IllegalStateException:
             return None, 500
-
-        out = to_wav_file(data)
         print(f'Inference of audio length {out.getbuffer().nbytes}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/wav', direct_passthrough=True)
 
@@ -272,13 +410,11 @@ def tts_aac():
         t0 = time.time()
 
         try:
-            data = inference()
+            out = inference('adts')
         except IllegalArgumentException:
             return None, 400
         except IllegalStateException:
             return None, 500
-
-        out = convert_pcm(data, 'adts')
         print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/aac', direct_passthrough=True)
 
@@ -289,13 +425,11 @@ def tts_mp3():
         t0 = time.time()
 
         try:
-            data = inference()
+            out = inference('mp3')
         except IllegalArgumentException:
             return None, 400
         except IllegalStateException:
             return None, 500
-
-        out = convert_pcm(data, 'mp3')
         print(f'Inference of audio length {len(out)}, time: {time.time() - t0}', flush=True)
         return Response(out, mimetype='audio/mpeg', direct_passthrough=True)
 
@@ -355,7 +489,7 @@ def upload_wav():
     input_filename = os.path.basename(file.filename)
     basename, ext = os.path.splitext(input_filename)
     if ext != '.wav':
-        return 'Input file should be *.wav', 400
+        return 'Input file should be .wav', 400
 
     upload_folder = get_work_data_dir('wav')
     file_path = os.path.join(upload_folder, input_filename)
@@ -380,7 +514,7 @@ def upload_mp3():
     input_filename = os.path.basename(file.filename)
     basename, ext = os.path.splitext(input_filename)
     if ext != '.mp3':
-        return 'Input file should be *.mp3', 400
+        return 'Input file should be .mp3', 400
 
     output_filename = f'{basename}.wav'
     tmp_dir = os.getenv('TMPDIR', '/tmp')
@@ -477,6 +611,69 @@ def test_stream():
         wav_chunks.append(chunk)
     wav = torch.cat(wav_chunks, dim=0)
     torchaudio.save("xtts_streaming.wav", wav.squeeze().unsqueeze(0).cpu(), 24000)
+
+
+def test_aliyun_token():
+    token = get_aliyun_token()
+    cached_token = get_aliyun_token()
+    print(f'aliyun token: {get_aliyun_token()}, cached token: {cached_aliyun_token}')
+    assert token == cached_token
+
+
+def test_aliyun_tts():
+    output_path = './test_aliyun_tts.mp3'
+
+    try:
+        os.remove(output_path)
+    except Exception:
+        pass
+
+    f = open(output_path, 'wb')
+
+    def test_on_metainfo(message, *args):
+        print("on_metainfo message=>{}".format(message))
+
+    def test_on_error(message, *args):
+        print("on_error args=>{}".format(args))
+
+    def test_on_close(*args):
+        print("on_close: args=>{}".format(args))
+        try:
+            f.close()
+        except Exception as e:
+            print("close file failed since:", e)
+
+    def test_on_data(data, *args):
+        try:
+            f.write(data)
+        except Exception as e:
+            print("write data failed:", e)
+
+    def test_on_completed(message, *args):
+        print("on_completed:args=>{} message=>{}".format(args, message))
+
+    voice = 'zhimi_emo'
+    text = '作为普通人，最好不要认为自己会是那少数的幸运儿。'
+    emotion = 'sad'
+    emo_text = f'<speak voice="{voice}"><emotion category="{emotion}">{text}</emotion></speak>'
+    api_url = os.getenv('ALIYUN_TTS_URL')
+    app_key = os.getenv('ALIYUN_TTS_APP_KEY')
+    nls.enableTrace(True)
+    tts = nls.NlsSpeechSynthesizer(url=api_url,
+                                   token=get_aliyun_token(),
+                                   appkey=app_key,
+                                   on_metainfo=test_on_metainfo,
+                                   on_data=test_on_data,
+                                   on_completed=test_on_completed,
+                                   on_error=test_on_error,
+                                   on_close=test_on_close,
+                                   callback_args=['test args'])
+    tts.start(text=emo_text,
+              aformat='mp3',
+              voice=voice,
+              wait_complete=True)
+    tts.shutdown()
+    assert os.path.exists(output_path)
 
 
 def main():

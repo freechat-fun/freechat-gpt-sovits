@@ -27,22 +27,23 @@ RUN CUDA_REPO_PKG=cuda-repo-ubuntu2204-11-8-local_11.8.0-520.61.05-1_amd64.deb &
     apt-get install -y --no-install-recommends cuda-toolkit-11-8 && \
     rm -f $CUDA_REPO_PKG && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-input --no-cache-dir deepspeed==0.10.3
+    pip install --no-input --no-cache-dir --break-system-packages deepspeed==0.10.3
 
 # install ffmpeg & ffmpeg-python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
-    pip install ffmpeg-python==0.2.0
+    apt-get install -y --no-install-recommends ffmpeg
 
 # clean apt-get cached files
 RUN apt-get clean && apt-get autoremove -y
+
+# install python dependencies
+COPY data/ /root/
+RUN pip install --no-input --no-cache-dir --break-system-packages -r /root/requirements.txt
 
 ENV COQUI_TOS_AGREED=1
 ENV TTS_HOME=/root/.local/share
 ENV TORTOISE_MODELS_DIR=/root/.local/share/tortoise/models
 ENV PYTHONUNBUFFERED=1
 
-COPY data/ /root/
-
 ENTRYPOINT ["python3", "/root/TTS/server/freechat_tts_server.py"]
-CMD ["--model_name", "tts_models/multilingual/multi-dataset/xtts_v2", "--model_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2", "--config_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/config.json", "--speakers_file_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/speakers_xtts.pth", "--vocab_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/vocab.json", "--show_details", "true", "--use_cuda", "true"]
+CMD ["--model_name", "tts_models/multilingual/multi-dataset/xtts_v2", "--model_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2", "--config_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/config.json", "--speakers_file_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/speakers_xtts.pth", "--vocab_path", "/root/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/vocab.json", "--show_details", "true", "--use_cuda", "true", "--enable_aliyun_tts", "true"]
