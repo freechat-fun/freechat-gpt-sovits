@@ -25,7 +25,7 @@ RUN apt-get clean && apt-get autoremove -y
 
 # install python dependencies
 COPY data/ /root/
-RUN pip install --no-input --no-cache-dir --break-system-packages -r /root/requirements.txt
+RUN pip install --no-input --no-cache-dir -r /root/requirements.txt
 
 ENV COQUI_TOS_AGREED=1
 ENV TTS_HOME=/root/.local/share
