@@ -176,14 +176,14 @@ def get_aliyun_token():
             return None
 
 
-def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
+def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> bytes:
     out = io.BytesIO()
     if torch.is_tensor(wav):
         wav = wav.cpu().numpy()
     if isinstance(wav, list):
         wav = np.array(wav)
     save_wav(wav=wav, path=out, sample_rate=config.model_args.output_sample_rate, pipe_out=None)
-    return out
+    return out.getvalue()
 
 
 def to_pcm_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
@@ -329,7 +329,7 @@ def inference_by_aliyun(text: str,
                         voice: str,
                         emotion: str = None,
                         output_format: str = None,
-                        request_id: str = '') -> io.BytesIO:
+                        request_id: str = '') -> bytes:
     api_url = os.getenv('ALIYUN_TTS_URL')
     if not api_url:
         print('Miss aliyun tts api url.', sys.stderr, flush=True)
@@ -351,10 +351,10 @@ def inference_by_aliyun(text: str,
     out = io.BytesIO()
 
     def on_metainfo(message, *args):
-        print("aliyun tts on_metainfo message=>{}".format(message))
+        print("aliyun tts on_metainfo message=>{} args=>{}".format(message, args))
 
     def on_error(message, *args):
-        print("aliyun tts on_error args=>{}".format(args))
+        print("aliyun tts on_error message=>{} args=>{}".format(message, args))
 
     def on_close(*args):
         print("aliyun tts on_close: args=>{}".format(args))
@@ -386,7 +386,7 @@ def inference_by_aliyun(text: str,
               voice=voice,
               wait_complete=True)
     tts.shutdown()
-    return out
+    return out.getvalue()
 
 
 @app.route('/inference/wav', methods=['POST'])
@@ -634,7 +634,7 @@ def test_aliyun_tts():
         print("on_metainfo message=>{}".format(message))
 
     def test_on_error(message, *args):
-        print("on_error args=>{}".format(args))
+        print("on_error mesage=>{} args=>{}".format(message, args))
 
     def test_on_close(*args):
         print("on_close: args=>{}".format(args))
