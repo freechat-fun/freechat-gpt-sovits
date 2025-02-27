@@ -183,7 +183,9 @@ def to_wav_file(wav: List[int] | torch.Tensor | np.ndarray) -> bytes:
     if isinstance(wav, list):
         wav = np.array(wav)
     save_wav(wav=wav, path=out, sample_rate=config.model_args.output_sample_rate, pipe_out=None)
-    return out.getvalue()
+    data = out.getvalue()
+    out.close()
+    return data
 
 
 def to_pcm_bytes(wav: List[int] | torch.Tensor | np.ndarray) -> io.BytesIO:
@@ -350,27 +352,23 @@ def inference_by_aliyun(text: str,
 
     out = io.BytesIO()
 
-    def on_metainfo(message, *args):
-        print("aliyun tts on_metainfo message=>{} args=>{}".format(message, args))
+    def on_metainfo(message, *custom_args):
+        print("aliyun tts on_metainfo message=>{} args=>{}".format(message, custom_args))
 
-    def on_error(message, *args):
-        print("aliyun tts on_error message=>{} args=>{}".format(message, args))
+    def on_error(message, *custom_args):
+        print("aliyun tts on_error message=>{} args=>{}".format(message, custom_args))
 
-    def on_close(*args):
-        print("aliyun tts on_close: args=>{}".format(args))
-        try:
-            out.close()
-        except Exception as e:
-            print("close file failed since:", e)
+    def on_close(*custom_args):
+        print("aliyun tts on_close: args=>{}".format(custom_args))
 
-    def on_data(data, *args):
+    def on_data(data, *custom_args):
         try:
             out.write(data)
         except Exception as e:
-            print("write data failed:", e)
+            print("write data failed: ", e)
 
-    def on_completed(message, *args):
-        print("aliyun tts on_completed:args=>{} message=>{}".format(args, message))
+    def on_completed(message, *custom_args):
+        print("aliyun tts on_completed:args=>{} message=>{}".format(custom_args, message))
 
     tts = nls.NlsSpeechSynthesizer(url=api_url,
                                    token=sts_token,
@@ -386,7 +384,9 @@ def inference_by_aliyun(text: str,
               voice=voice,
               wait_complete=True)
     tts.shutdown()
-    return out.getvalue()
+    data = out.getvalue()
+    out.close()
+    return data
 
 
 @app.route('/inference/wav', methods=['POST'])
@@ -630,27 +630,27 @@ def test_aliyun_tts():
 
     f = open(output_path, 'wb')
 
-    def test_on_metainfo(message, *args):
-        print("on_metainfo message=>{}".format(message))
+    def test_on_metainfo(message, *custom_args):
+        print("on_metainfo message=>{} args=>{}".format(message, custom_args))
 
-    def test_on_error(message, *args):
-        print("on_error mesage=>{} args=>{}".format(message, args))
+    def test_on_error(message, *custom_args):
+        print("on_error mesage=>{} args=>{}".format(message, custom_args))
 
-    def test_on_close(*args):
-        print("on_close: args=>{}".format(args))
+    def test_on_close(*custom_args):
+        print("on_close: args=>{}".format(custom_args))
         try:
             f.close()
         except Exception as e:
             print("close file failed since:", e)
 
-    def test_on_data(data, *args):
+    def test_on_data(data, *custom_args):
         try:
             f.write(data)
         except Exception as e:
-            print("write data failed:", e)
+            print("write data failed: ", e)
 
-    def test_on_completed(message, *args):
-        print("on_completed:args=>{} message=>{}".format(args, message))
+    def test_on_completed(message, *custom_args):
+        print("on_completed:args=>{} message=>{}".format(custom_args, message))
 
     voice = 'zhimi_emo'
     text = '作为普通人，最好不要认为自己会是那少数的幸运儿。'
