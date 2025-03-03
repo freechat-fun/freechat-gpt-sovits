@@ -289,12 +289,12 @@ def inference(output_format: str = None):
     if speaker_idx:
         print(f' > Speaker Idx: {speaker_idx}')
         third_party_speaker = re.compile(r"\[(.+?)](.+?)(\|([^|]*))?")
-        match = third_party_speaker.match(speaker_idx)
+        match = third_party_speaker.fullmatch(speaker_idx)
 
         if match:
             platform = match.group(1)
             speaker = match.group(2)
-            emotion = match.group(4)
+            emotion = match.group(4) if match.lastindex >= 4 else None
             if platform == 'aliyun' and aliyun_client:
                 return inference_by_aliyun(text, speaker, emotion, output_format, request_id)
         gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers[speaker_idx].values()
