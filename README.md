@@ -1,4 +1,4 @@
-# Scripts for GPT-SoVITS
+# Scripts for GPT-SoVITS deployment
 
 1. Put the Kubernetes configuration file in the `configs/helm/` directory, named `kube-private.conf`.
 2. Place the Helm configuration file in the same directory, named `values-private.yaml`. Make sure to reference the default `values.yaml` and customize the variables as needed.
