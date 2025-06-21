@@ -2,10 +2,11 @@ annotations:
   licenses: Apache-2.0
 appVersion: latest
 description: A Helm chart for coqui tts
-maintainers:
-  - email: dev.freechat.fun@gmail.com
-    name: dev.freechat.fun
-    url: https://github.com/freechat-fun/freechat-tts
-name: freechat-tts
+# maintainers:
+#   - email: dev.freechat.fun@gmail.com
+#     name: dev.freechat.fun
+#     url: https://github.com/freechat-fun/freechat-gpt-sovits
+# name: freechat-gpt-sovits
+name: tongyi-ai-gpt-sovits
 type: application
-version: 0.2.0
+version: 0.1.0

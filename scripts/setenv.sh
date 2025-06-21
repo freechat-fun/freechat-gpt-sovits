@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 PROJECT_PATH=$(cd $(dirname ${BASH_SOURCE[0]})/..; pwd)
-PROJECT_NAME=${PROJECT_PATH##*/}
+# PROJECT_NAME=${PROJECT_PATH##*/}
+PROJECT_NAME=tongyi-ai-gpt-sovits
 
 DOCKER_CONFIG_HOME=${PROJECT_PATH}/configs/docker
 HELM_CONFIG_HOME=${PROJECT_PATH}/configs/helm

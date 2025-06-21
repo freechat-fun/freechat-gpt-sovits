@@ -1,0 +1,3 @@
+FROM xxxxrt666/gpt-sovits:latest-cu128
+
+ENTRYPOINT [ "/bin/bash" ]
