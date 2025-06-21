@@ -32,9 +32,9 @@ if [[ "${VERBOSE}" == "1" ]];then
   cat ${COMPOSE_CONFIG}
 fi
 
-builder=$(docker-buildx ls | grep "^multiple-platforms-builder" | awk '{print $1}')
+builder=$(docker buildx ls | grep "^multiple-platforms-builder" | awk '{print $1}')
 if [[ -z "${builder}" ]]; then
-  docker-buildx create --name multiple-platforms-builder --driver docker-container --bootstrap
+  docker buildx create --name multiple-platforms-builder --driver docker-container --bootstrap
 fi
 
 export DOCKER_BUILDKIT=1
