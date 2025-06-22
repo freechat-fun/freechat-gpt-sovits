@@ -9,4 +9,4 @@ description: A Helm chart for coqui tts
 # name: freechat-gpt-sovits
 name: tongyi-ai-gpt-sovits
 type: application
-version: 0.1.0
+version: 0.1.1
