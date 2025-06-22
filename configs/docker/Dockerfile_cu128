@@ -1,3 +1,7 @@
 FROM xxxxrt666/gpt-sovits:latest-cu128
 
+# install python dependencies
+COPY data/ /workspace/GPT-SoVITS/
+RUN pip install --no-input --no-cache-dir -r /workspace/GPT-SoVITS/server-requirements.txt
+
 ENTRYPOINT [ "/bin/bash" ]

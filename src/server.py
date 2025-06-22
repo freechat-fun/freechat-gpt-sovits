@@ -100,11 +100,9 @@ RESP:
 import io
 import json
 import os
-import re
 import sys
 import time
 from threading import Lock
-import traceback
 from typing import Generator
 
 from aliyunsdkcore.client import AcsClient
@@ -556,7 +554,7 @@ def get_aliyun_token():
 
 
 def get_work_data_dir(module: str) -> str:
-    data_home = os.environ.get('DATA_HOME', '/var/lib/tts')
+    data_home = os.environ.get('DATA_HOME', '/workspace/data')
     data_path = os.path.join(data_home, module)
     if not os.path.exists(data_path):
         os.makedirs(data_path, exist_ok=True)
