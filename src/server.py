@@ -102,6 +102,7 @@ import json
 import os
 import sys
 import time
+import traceback
 from threading import Lock
 from typing import Generator
 
@@ -120,8 +121,8 @@ import wave
 import signal
 import numpy as np
 import soundfile as sf
-from fastapi import FastAPI, Response
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import FastAPI, Response, UploadFile, File
+from fastapi.responses import PlainTextResponse, StreamingResponse, JSONResponse
 import uvicorn
 from io import BytesIO
 from tools.i18n.i18n import I18nAuto
@@ -134,9 +135,10 @@ i18n = I18nAuto()
 cut_method_names = get_cut_method_names()
 
 parser = argparse.ArgumentParser(description="GPT-SoVITS api")
-parser.add_argument("-c", "--tts_config", type=str, default="GPT_SoVITS/configs/tts_infer.yaml", help="tts_infer路径")
+parser.add_argument("-c", "--tts_config", type=str, default="GPT_SoVITS/configs/tts_infer.yaml", help="path of tts_infer.yaml")
 parser.add_argument("-a", "--bind_addr", type=str, default="127.0.0.1", help="default: 127.0.0.1")
 parser.add_argument("-p", "--port", type=int, default="9880", help="default: 9880")
+parser.add_argument('--enable_aliyun_tts', action='store_true', help='enable aliyun tts.')
 args = parser.parse_args()
 config_path = args.tts_config
 # device = args.device
@@ -412,11 +414,12 @@ async def tts_get_endpoint(
     sample_steps: int = 32,
     super_sampling: bool = False,
 ):
+    data_path = get_work_data_dir("uploaded_audio")
     req = {
         "text": text,
         "text_lang": text_lang.lower(),
-        "ref_audio_path": ref_audio_path,
-        "aux_ref_audio_paths": aux_ref_audio_paths,
+        "ref_audio_path": os.path.join(data_path, ref_audio_path),
+        "aux_ref_audio_paths": list(map(lambda p: os.path.join(data_path, p), aux_ref_audio_paths)),
         "prompt_text": prompt_text,
         "prompt_lang": prompt_lang.lower(),
         "top_k": top_k,
@@ -441,18 +444,36 @@ async def tts_get_endpoint(
 
 @APP.post("/tts")
 async def tts_post_endpoint(request: TTS_Request):
-    req = request.dict()
+    req = request.model_dump()
     return await tts_handle(req)
 
 
-@APP.get("/set_refer_audio")
-async def set_refer_aduio(refer_audio_path: str = None):
+@APP.post("/upload_refer_audio")
+async def upload_refer_audio(audio_file: UploadFile = File(...)):
     try:
-        tts_pipeline.set_ref_audio(refer_audio_path)
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"message": "set refer audio failed", "Exception": str(e)})
-    return JSONResponse(status_code=200, content={"message": "success"})
+        if not audio_file.content_type.startswith("audio/"):
+            return JSONResponse(status_code=400, content={"message": "file type is not supported"})
 
+        upload_path = get_work_data_dir("uploaded_audio")
+        os.makedirs(upload_path, exist_ok=True)
+        save_path = os.path.join(upload_path, audio_file.filename)
+
+        with open(save_path , "wb") as buffer:
+            buffer.write(await audio_file.read())
+
+        return PlainTextResponse(status_code=200, content=audio_file.filename)
+    except Exception as e:
+        return PlainTextResponse(status_code=400, content=str(e))
+
+
+# @APP.get("/set_refer_audio")
+# async def set_refer_aduio(refer_audio_path: str = None):
+#     try:
+#         tts_pipeline.set_ref_audio(refer_audio_path)
+#     except Exception as e:
+#         return JSONResponse(status_code=400, content={"message": "set refer audio failed", "Exception": str(e)})
+#     return JSONResponse(status_code=200, content={"message": "success"})
+#
 
 # @APP.post("/set_refer_audio")
 # async def set_refer_aduio_post(audio_file: UploadFile = File(...)):
@@ -625,7 +646,7 @@ def inference_by_aliyun(text: str,
 
 @APP.get('/ping')
 def ping():
-    return 'pong', 200
+    return PlainTextResponse(status_code=200, content='pong')
 
 
 def test_aliyun_token():
@@ -697,3 +718,14 @@ class IllegalArgumentException(Exception):
 
 class IllegalStateException(Exception):
     pass
+
+
+if __name__ == "__main__":
+    try:
+        if host == "None":  # 在调用时使用 -a None 参数，可以让api监听双栈
+            host = None
+        uvicorn.run(app=APP, host=host, port=port, workers=1)
+    except Exception:
+        traceback.print_exc()
+        os.kill(os.getpid(), signal.SIGTERM)
+        exit(0)

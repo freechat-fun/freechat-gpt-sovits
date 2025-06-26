@@ -1,7 +1,7 @@
 FROM xxxxrt666/gpt-sovits:latest-cu128
 
 # install python dependencies
-RUN bash /workspace/GPT-SoVITS/install.sh --device CU128 --source HF --download-uvr5
+RUN bash /workspace/GPT-SoVITS/install.sh --device CPU --source HF
 COPY data/ /workspace/GPT-SoVITS/
 RUN pip install --no-input --no-cache-dir -r /workspace/GPT-SoVITS/server-requirements.txt
 
