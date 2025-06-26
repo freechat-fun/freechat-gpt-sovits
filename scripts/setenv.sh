@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 PROJECT_PATH=$(cd $(dirname ${BASH_SOURCE[0]})/..; pwd)
-# PROJECT_NAME=${PROJECT_PATH##*/}
-PROJECT_NAME=tongyi-ai-gpt-sovits
+PROJECT_NAME=${PROJECT_PATH##*/}
 
 DOCKER_CONFIG_HOME=${PROJECT_PATH}/configs/docker
 HELM_CONFIG_HOME=${PROJECT_PATH}/configs/helm
@@ -73,10 +72,6 @@ values_yaml="${HELM_CONFIG_HOME}/values.yaml"
 if [[ -f "${HELM_CONFIG}" ]]; then
   eval $(parse_yaml "${HELM_CONFIG}" HELM_)
   values_yaml="${values_yaml} -f ${HELM_CONFIG}"
-fi
-
-if [[ -f "${PROJECT_PATH}/${STARTER_MODULE}/src/main/resources/application-local.yml" ]]; then
-  eval $(parse_yaml "${PROJECT_PATH}/${STARTER_MODULE}/src/main/resources/application-local.yml" LOCAL_)
 fi
 
 if [[ -z "${NAMESPACE}" ]]; then

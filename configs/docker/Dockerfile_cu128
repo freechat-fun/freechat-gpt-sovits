@@ -1,7 +1,11 @@
-FROM xxxxrt666/gpt-sovits:latest-cu128
+ARG BASE_IMAGE=xxxxrt666/gpt-sovits:latest-cu128
+FROM ${BASE_IMAGE}
+
+ARG MODEL_REPO=HF
+ENV MODEL_REPO=${MODEL_REPO}
 
 # install python dependencies
-RUN bash /workspace/GPT-SoVITS/install.sh --device CU128 --source HF --download-uvr5
+RUN bash /workspace/GPT-SoVITS/install.sh --device CPU --source ${MODEL_REPO}
 COPY data/ /workspace/GPT-SoVITS/
 RUN pip install --no-input --no-cache-dir -r /workspace/GPT-SoVITS/server-requirements.txt
 
