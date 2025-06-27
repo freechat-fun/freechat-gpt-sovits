@@ -178,6 +178,8 @@ lerna-debug.log*
 # Local files
 .DS_Store
 *-private.*
+*_private.*
+*_private
 node_modules/
 dist-ssr/
 .vscode/

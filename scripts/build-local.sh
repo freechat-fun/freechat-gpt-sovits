@@ -7,27 +7,17 @@ check_docker
 mkdir "${DOCKER_CONFIG_HOME}/data"
 cp -r "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data"
 
-COMPOSE_CONFIG=$(mktemp -d)/build.yml
-
-# compose config
-cat > ${COMPOSE_CONFIG} <<EOF
-services:
-  cpu:
-    build:
-      context: ${DOCKER_CONFIG_HOME}
-      dockerfile: Dockerfile_cpu
-      platforms:
-        - linux/arm64
-    image: ${HELM_image_repository}:latest-cpu
-EOF
-
-if [[ "${VERBOSE}" == "1" ]];then
-  echo "[COMPOSE CONFIG]"
-  cat ${COMPOSE_CONFIG}
+# Display configuration if VERBOSE is set
+if [[ "${VERBOSE}" == "1" ]]; then
+  echo "[BUILD CONFIG]"
+  echo "Context: ${DOCKER_CONFIG_HOME}"
+  echo "Dockerfile: Dockerfile_cpu"
+  echo "Image: ${HELM_image_repository}:latest-cpu"
 fi
 
-export COMPOSE_BAKE=true
-docker-compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build ${ARGS[*]} cpu
+# Build the Docker image using docker build
+docker build -t "${HELM_image_repository}:latest-cpu" "${DOCKER_CONFIG_HOME}" \
+  -f "${DOCKER_CONFIG_HOME}/Dockerfile_cpu" \
+  ${ARGS[*]}
 
-rm -f ${COMPOSE_CONFIG}
 rm -rf "${DOCKER_CONFIG_HOME}/data"

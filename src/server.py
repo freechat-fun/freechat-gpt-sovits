@@ -104,6 +104,7 @@ import sys
 import time
 import traceback
 from threading import Lock
+from traceback import print_exception
 from typing import Generator
 
 from aliyunsdkcore.client import AcsClient
@@ -124,21 +125,26 @@ import soundfile as sf
 from fastapi import FastAPI, Response, UploadFile, File
 from fastapi.responses import PlainTextResponse, StreamingResponse, JSONResponse
 import uvicorn
+import yaml
 from io import BytesIO
 from tools.i18n.i18n import I18nAuto
 from GPT_SoVITS.TTS_infer_pack.TTS import TTS, TTS_Config
 from GPT_SoVITS.TTS_infer_pack.text_segmentation_method import get_method_names as get_cut_method_names
 from pydantic import BaseModel
 
+
 # print(sys.path)
 i18n = I18nAuto()
 cut_method_names = get_cut_method_names()
 
 parser = argparse.ArgumentParser(description="GPT-SoVITS api")
-parser.add_argument("-c", "--tts_config", type=str, default="GPT_SoVITS/configs/tts_infer.yaml", help="path of tts_infer.yaml")
+parser.add_argument("-c", "--tts_config", type=str, default="tts_infer.yaml", help="path of tts_infer.yaml")
 parser.add_argument("-a", "--bind_addr", type=str, default="127.0.0.1", help="default: 127.0.0.1")
 parser.add_argument("-p", "--port", type=int, default="9880", help="default: 9880")
-parser.add_argument('--enable_aliyun_tts', action='store_true', help='enable aliyun tts.')
+parser.add_argument("-v", "--version", type=str, default="v2", help="version")
+parser.add_argument("--device", type=str, default="cpu", help="device")
+parser.add_argument("--is_half", type=str, default="false", help="is_half")
+parser.add_argument("--enable_aliyun_tts", action="store_true", help="enable aliyun tts")
 args = parser.parse_args()
 config_path = args.tts_config
 # device = args.device
@@ -147,9 +153,18 @@ host = args.bind_addr
 argv = sys.argv
 
 if config_path in [None, ""]:
-    config_path = "GPT-SoVITS/configs/tts_infer.yaml"
+    config_path = "tts_infer.yaml"
 
-tts_config = TTS_Config(config_path)
+with open(config_path, "r", encoding="utf-8", errors="strict") as f:
+    configs = yaml.load(f, Loader=yaml.FullLoader)
+
+configs["version"] = args.version
+configs[args.version]["device"] = args.device
+configs[args.version]["is_half"] = args.is_half
+
+configs["custom"] = configs[args.version]
+
+tts_config = TTS_Config(configs)
 print(tts_config)
 tts_pipeline = TTS(tts_config)
 
@@ -379,6 +394,7 @@ async def tts_handle(req: dict):
             audio_data = pack_audio(BytesIO(), audio_data, sr, media_type).getvalue()
             return Response(audio_data, media_type=f"audio/{media_type}")
     except Exception as e:
+        print_exception(e)
         return JSONResponse(status_code=400, content={"message": "tts failed", "Exception": str(e)})
 
 
@@ -413,13 +429,14 @@ async def tts_get_endpoint(
     repetition_penalty: float = 1.35,
     sample_steps: int = 32,
     super_sampling: bool = False,
+    **kwargs,
 ):
     data_path = get_work_data_dir("uploaded_audio")
     req = {
         "text": text,
         "text_lang": text_lang.lower(),
-        "ref_audio_path": os.path.join(data_path, ref_audio_path),
-        "aux_ref_audio_paths": list(map(lambda p: os.path.join(data_path, p), aux_ref_audio_paths)),
+        "ref_audio_path": os.path.join(data_path, ref_audio_path) if ref_audio_path else "",
+        "aux_ref_audio_paths": list(map(lambda p: os.path.join(data_path, p), aux_ref_audio_paths)) if aux_ref_audio_paths else [],
         "prompt_text": prompt_text,
         "prompt_lang": prompt_lang.lower(),
         "top_k": top_k,
@@ -438,6 +455,7 @@ async def tts_get_endpoint(
         "repetition_penalty": float(repetition_penalty),
         "sample_steps": int(sample_steps),
         "super_sampling": super_sampling,
+        **kwargs,
     }
     return await tts_handle(req)
 
@@ -445,15 +463,12 @@ async def tts_get_endpoint(
 @APP.post("/tts")
 async def tts_post_endpoint(request: TTS_Request):
     req = request.model_dump()
-    return await tts_handle(req)
+    return await tts_get_endpoint(**req)
 
 
 @APP.post("/upload_refer_audio")
 async def upload_refer_audio(audio_file: UploadFile = File(...)):
     try:
-        if not audio_file.content_type.startswith("audio/"):
-            return JSONResponse(status_code=400, content={"message": "file type is not supported"})
-
         upload_path = get_work_data_dir("uploaded_audio")
         os.makedirs(upload_path, exist_ok=True)
         save_path = os.path.join(upload_path, audio_file.filename)

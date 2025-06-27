@@ -5,9 +5,14 @@ ARG MODEL_REPO=HF
 ENV MODEL_REPO=${MODEL_REPO}
 
 # install python dependencies
-RUN bash /workspace/GPT-SoVITS/install.sh --device CPU --source ${MODEL_REPO}
 COPY data/ /workspace/GPT-SoVITS/
+RUN bash /workspace/GPT-SoVITS/install.sh --device CPU --source ${MODEL_REPO}
 RUN pip install --no-input --no-cache-dir -r /workspace/GPT-SoVITS/server-requirements.txt
 
 ENTRYPOINT ["python", "/workspace/GPT-SoVITS/server.py"]
-CMD ["--bind_addr", "0.0.0.0", "--enable_aliyun_tts"]
+CMD ["--bind_addr", "0.0.0.0",\
+ "--tts_config", "/workspace/GPT-SoVITS/tts_infer.yaml",\
+ "--device", "cpu",\
+ "--is_half", "false",\
+ "--version", "v4",\
+ "--enable_aliyun_tts"]
