@@ -4,8 +4,9 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 
 check_docker
 
-mkdir "${DOCKER_CONFIG_HOME}/data"
-cp -r "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data"
+mkdir -p "${DOCKER_CONFIG_HOME}/data/nls"
+cp "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data/"
+cp -r "${PROJECT_PATH}/src/nls/"* "${DOCKER_CONFIG_HOME}/data/nls/"
 
 COMPOSE_CONFIG=$(mktemp -d)/build.yml
 
@@ -48,9 +49,9 @@ fi
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_BAKE=true
-docker-compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build \
+docker compose -f ${COMPOSE_CONFIG} -p ${PROJECT_NAME} build \
   --builder multiple-platforms-builder \
-  ${ARGS[*]} cu128 cpu \
+  --push cu128 cpu
 
 rm -f ${COMPOSE_CONFIG}
 rm -rf "${DOCKER_CONFIG_HOME}/data"

@@ -5,9 +5,10 @@ ARG MODEL_REPO=HF
 ENV MODEL_REPO=${MODEL_REPO}
 
 # install python dependencies
+RUN bash /workspace/GPT-SoVITS/install.sh --device CU128 --source ${MODEL_REPO}
 COPY data/ /workspace/GPT-SoVITS/
-RUN bash /workspace/GPT-SoVITS/install.sh --device CPU --source ${MODEL_REPO}
 RUN pip install --no-input --no-cache-dir -r /workspace/GPT-SoVITS/server-requirements.txt
+RUN conda clean --all && pip cache purge && apt-get clean
 
 ENTRYPOINT ["python", "/workspace/GPT-SoVITS/server.py"]
 CMD ["--bind_addr", "0.0.0.0",\
