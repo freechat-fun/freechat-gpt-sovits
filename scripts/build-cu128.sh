@@ -5,8 +5,7 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 check_docker
 
 mkdir -p "${DOCKER_CONFIG_HOME}/data/nls"
-cp "${PROJECT_PATH}/src/"*.* "${DOCKER_CONFIG_HOME}/data/"
-cp -r "${PROJECT_PATH}/src/nls/"* "${DOCKER_CONFIG_HOME}/data/nls/"
+cp -r "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data/"
 
 # Display configuration if VERBOSE is set
 if [[ "${VERBOSE}" == "1" ]]; then

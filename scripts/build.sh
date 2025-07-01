@@ -5,8 +5,7 @@ source $(dirname ${BASH_SOURCE[0]})/setenv.sh
 check_docker
 
 mkdir -p "${DOCKER_CONFIG_HOME}/data/nls"
-cp "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data/"
-cp -r "${PROJECT_PATH}/src/nls/"* "${DOCKER_CONFIG_HOME}/data/nls/"
+cp -r "${PROJECT_PATH}/src/"* "${DOCKER_CONFIG_HOME}/data/"
 
 COMPOSE_CONFIG=$(mktemp -d)/build.yml
 
